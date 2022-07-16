@@ -37,6 +37,17 @@ def find_dadvi_optimum(
     return {"opt_result": opt_result, "evaluation_count": eval_count}
 
 
+def get_dadvi_draws(var_params, zs):
+
+    # TODO: Could use JAX here
+    means, log_sds = np.split(var_params, 2)
+    sds = np.exp(log_sds)
+
+    draws = means.reshape(1, -1) + zs * sds.reshape(1, -1)
+
+    return draws
+
+
 def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun, top_left_only=True):
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)

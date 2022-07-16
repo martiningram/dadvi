@@ -48,7 +48,7 @@ def get_jax_functions_from_pymc3(pymc3_model):
 
     _, init_state, logp_fn_jax = get_basic_init_from_pymc3(pymc3_model)
     var_names, _ = get_var_shapes_from_model(pymc3_model)
-    logp_fn_dict = logp_fn_jax(logp_fn_jax, var_names)
+    logp_fn_dict = get_logp_fn_dict(logp_fn_jax, var_names)
     flat_init, fun = ravel_pytree(init_state)
 
     def flat_log_post_fun(flat_params):
