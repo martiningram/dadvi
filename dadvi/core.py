@@ -18,11 +18,11 @@ def find_dadvi_optimum(
     init_params, zs, dadvi_funs, opt_method="trust-ncg", callback_fun=None
 ):
 
-    val_and_grad_fun = partial(dadvi_funs.kl_est_and_grad_fun, zs=zs)
+    val_and_grad_fun = lambda var_params: dadvi_funs.kl_est_and_grad_fun(var_params, zs)
     hvp_fun = (
         None
         if dadvi_funs.kl_est_hvp_fun is None
-        else partial(dadvi_funs.kl_est_hvp_fun, zs=zs)
+        else lambda var_params, b: dadvi_funs.kl_est_hvp_fun(var_params, zs, b)
     )
 
     opt_result, eval_count = optimize_with_hvp(
