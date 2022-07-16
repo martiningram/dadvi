@@ -48,6 +48,15 @@ def get_dadvi_draws(var_params, zs):
     return draws
 
 
+def get_lrvb_draws(opt_means, lrvb_cov, zs):
+
+    # TODO: Could use JAX here
+    cov_chol = np.linalg.cholesky(lrvb_cov)
+    draws = [opt_means + cov_chol @ cur_z for cur_z in zs]
+
+    return np.array(draws)
+
+
 def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun, top_left_only=True):
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
