@@ -37,7 +37,7 @@ def find_dadvi_optimum(
     return {"opt_result": opt_result, "evaluation_count": eval_count}
 
 
-def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun):
+def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun, top_left_only=True):
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
     target_vecs = np.eye(opt_params.shape[0])
@@ -46,4 +46,10 @@ def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun):
     hessian = np.stack([rel_hvp_fun(x) for x in target_vecs])
 
     # TODO: This could use JAX I guess.
-    return np.linalg.inv(hessian)
+    lrvb_cov_full = np.linalg.inv(hessian)
+
+    if top_left_only:
+        n_rel = zs.shape[1]
+        return lrvb_cov_full[:n_rel, :n_rel]
+    else:
+        return lrvb_cov_full
