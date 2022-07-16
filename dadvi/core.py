@@ -1,3 +1,4 @@
+import numpy as np
 from typing import NamedTuple, Callable, Optional
 from .optimization import optimize_with_hvp
 from functools import partial
@@ -34,3 +35,15 @@ def find_dadvi_optimum(
     )
 
     return {"opt_result": opt_result, "evaluation_count": eval_count}
+
+
+def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun):
+
+    rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
+    target_vecs = np.eye(opt_params.shape[0])
+
+    # TODO: Check this is correct
+    hessian = np.stack([rel_hvp_fun(x) for x in target_vecs])
+
+    # TODO: This could use JAX I guess.
+    return np.linalg.inv(hessian)
