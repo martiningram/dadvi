@@ -5,13 +5,21 @@ from dadvi.core import find_dadvi_optimum, get_dadvi_draws, compute_lrvb_covaria
 from jax import vmap
 
 
-def fit_dadvi_pymc3(pymc3_model, M=50, n_draws=1000, use_lrvb=False):
+def fit_dadvi_pymc3(pymc3_model, M=50, n_draws=1000, use_lrvb=False,
+                    lrvb_top_left_corner_only=False, fixed_draws=None):
 
     jax_funs = get_jax_functions_from_pymc3(pymc3_model)
     dadvi_funs = build_dadvi_funs(jax_funs['log_posterior_fun'])
     init_params = np.zeros(jax_funs['n_params']*2)
 
-    zs = np.random.randn(M, jax_funs['n_params'])
+    if fixed_draws is None:
+        zs = np.random.randn(M, jax_funs['n_params'])
+    else:
+        assert fixed_draws.shape[1] == jax_funs['n_params'], f"""Provided fixed draws must
+        have same number of parameters as model. Found {fixed_draws.shape[1]} and
+        {jax_funs["n_params"]} instead."""
+        zs = fixed_draws
+        
     opt_result = find_dadvi_optimum(init_params, zs, dadvi_funs)
     pred_zs = np.random.randn(n_draws, jax_funs['n_params'])
 
@@ -20,8 +28,9 @@ def fit_dadvi_pymc3(pymc3_model, M=50, n_draws=1000, use_lrvb=False):
     opt_params = opt_result['opt_result'].x
 
     if use_lrvb:
-        lrvb_cov = compute_lrvb_covariance_direct_method(opt_params, zs,
-                                                         dadvi_funs.kl_est_hvp_fun)
+        lrvb_cov = compute_lrvb_covariance_direct_method(
+            opt_params, zs, dadvi_funs.kl_est_hvp_fun,
+            top_left_corner_only=lrvb_top_left_corner_only)
         pred_draws = get_lrvb_draws(np.split(opt_params, 2)[0], lrvb_cov, pred_zs)
         details['lrvb_cov'] = lrvb_cov
     else:
@@ -32,5 +41,8 @@ def fit_dadvi_pymc3(pymc3_model, M=50, n_draws=1000, use_lrvb=False):
     # Add a "chain" dimension
     dict_draws = {x: np.expand_dims(y, axis=0) for x, y in dict_draws.items()}
     transformed_draws = transform_samples(dict_draws, pymc3_model, keep_untransformed=True)
+
+    details['fixed_draws'] = zs
+    details['jax_funs'] = jax_funs
 
     return transformed_draws, details

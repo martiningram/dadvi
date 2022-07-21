@@ -50,6 +50,10 @@ def get_dadvi_draws(var_params, zs):
 
 def get_lrvb_draws(opt_means, lrvb_cov, zs):
 
+    # Check if we have more than the top left corner, and discard if so
+    if lrvb_cov.shape[0] == 2 * zs.shape[1]:
+        lrvb_cov = lrvb_cov[:zs.shape[1], :zs.shape[1]]
+
     # TODO: Could use JAX here
     cov_chol = np.linalg.cholesky(lrvb_cov)
     draws = [opt_means + cov_chol @ cur_z for cur_z in zs]
@@ -57,7 +61,8 @@ def get_lrvb_draws(opt_means, lrvb_cov, zs):
     return np.array(draws)
 
 
-def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun, top_left_only=True):
+def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun,
+                                          top_left_corner_only=True):
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
     target_vecs = np.eye(opt_params.shape[0])
@@ -68,8 +73,23 @@ def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun, top_left_only
     # TODO: This could use JAX I guess.
     lrvb_cov_full = np.linalg.inv(hessian)
 
-    if top_left_only:
+    if top_left_corner_only:
         n_rel = zs.shape[1]
         return lrvb_cov_full[:n_rel, :n_rel]
     else:
         return lrvb_cov_full
+
+
+def compute_frequentist_covariance_estimate(var_params, kl_est_and_grad_fun, zs,
+                                            lrvb_cov):
+
+    M = zs.shape[0]
+
+    individual_grads = [kl_est_and_grad_fun(var_params, cur_z.reshape(1, -1))[1]
+                        for cur_z in zs]
+    grad_mat = np.array(individual_grads)
+
+    expected_cov = (1 / M) * np.cov(grad_mat.T)
+    expected_est = lrvb_cov @ expected_cov @ lrvb_cov
+
+    return expected_est
