@@ -3,6 +3,7 @@ from typing import NamedTuple, Callable, Optional
 from .optimization import optimize_with_hvp
 from functools import partial
 from .utils import cg_using_fun_scipy
+from scipy.sparse import diags
 
 
 class DADVIFuns(NamedTuple):
@@ -105,28 +106,42 @@ def compute_frequentist_covariance_estimate(
     return expected_est
 
 
-def compute_hessian_inv_column(var_params, index, hvp_fun, zs):
+def compute_preconditioner_from_var_params(var_params):
 
-    oh_encoded = np.zeros(var_params)
+    means, log_vars = np.split(var_params, 2)
+    inv_vars = np.concatenate([np.ones_like(log_vars), np.exp(-log_vars)])
+    M = diags(inv_vars)
+
+    return M
+
+
+def compute_hessian_inv_column(var_params, index, hvp_fun, zs, preconditioner=None):
+
+    oh_encoded = np.zeros_like(var_params)
     oh_encoded[index] = 1.0
 
     rel_hvp = lambda x: hvp_fun(var_params, zs, x)
-    cg_result = cg_using_fun_scipy(rel_hvp, oh_encoded)
+    cg_result = cg_using_fun_scipy(rel_hvp, oh_encoded, preconditioner=preconditioner)
+    success = cg_result[1] == 0
 
-    return cg_result
+    return cg_result[0], success
 
 
-def compute_single_frequentist_variance(index, var_params, dadvi_funs, zs):
+def compute_single_frequentist_variance(index, var_params, dadvi_funs, zs, preconditioner=None):
+
+    M = zs.shape[0]
 
     # TODO: These could be passed in instead
-    rel_h = compute_hessian_inv_column(var_params, index, dadvi_funs.kl_est_hvp_fun, zs)
+    rel_h, success = compute_hessian_inv_column(var_params, index, dadvi_funs.kl_est_hvp_fun, zs,
+                                                preconditioner=preconditioner)
     score_mat = compute_score_matrix(var_params, dadvi_funs.kl_est_and_grad_fun, zs)
 
     # TODO: Check this is correct
     score_mat_means = score_mat.mean(axis=0, keepdims=True)
     centred_score_mat = score_mat - score_mat_means
+
     rel_estimate = np.einsum(
-        "l,k,lm,km->", rel_h, rel_h, centred_score_mat, centred_score_mat
+        "l,k,ml,mk->", rel_h, rel_h, centred_score_mat, centred_score_mat
     )
 
-    return rel_estimate
+    return (1 / M**2) * rel_estimate
