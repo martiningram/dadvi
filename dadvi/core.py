@@ -2,6 +2,7 @@ import numpy as np
 from typing import NamedTuple, Callable, Optional
 from .optimization import optimize_with_hvp
 from functools import partial
+from .utils import cg_using_fun_scipy
 
 
 class DADVIFuns(NamedTuple):
@@ -52,7 +53,7 @@ def get_lrvb_draws(opt_means, lrvb_cov, zs):
 
     # Check if we have more than the top left corner, and discard if so
     if lrvb_cov.shape[0] == 2 * zs.shape[1]:
-        lrvb_cov = lrvb_cov[:zs.shape[1], :zs.shape[1]]
+        lrvb_cov = lrvb_cov[: zs.shape[1], : zs.shape[1]]
 
     # TODO: Could use JAX here
     cov_chol = np.linalg.cholesky(lrvb_cov)
@@ -61,13 +62,13 @@ def get_lrvb_draws(opt_means, lrvb_cov, zs):
     return np.array(draws)
 
 
-def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun,
-                                          top_left_corner_only=True):
+def compute_lrvb_covariance_direct_method(
+    opt_params, zs, hvp_fun, top_left_corner_only=True
+):
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
     target_vecs = np.eye(opt_params.shape[0])
 
-    # TODO: Check this is correct
     hessian = np.stack([rel_hvp_fun(x) for x in target_vecs])
 
     # TODO: This could use JAX I guess.
@@ -80,16 +81,52 @@ def compute_lrvb_covariance_direct_method(opt_params, zs, hvp_fun,
         return lrvb_cov_full
 
 
-def compute_frequentist_covariance_estimate(var_params, kl_est_and_grad_fun, zs,
-                                            lrvb_cov):
+def compute_score_matrix(var_params, kl_est_and_grad_fun, zs):
+
+    individual_grads = [
+        kl_est_and_grad_fun(var_params, cur_z.reshape(1, -1))[1] for cur_z in zs
+    ]
+    grad_mat = np.array(individual_grads)
+
+    return grad_mat
+
+
+def compute_frequentist_covariance_estimate(
+    var_params, kl_est_and_grad_fun, zs, lrvb_cov
+):
 
     M = zs.shape[0]
 
-    individual_grads = [kl_est_and_grad_fun(var_params, cur_z.reshape(1, -1))[1]
-                        for cur_z in zs]
-    grad_mat = np.array(individual_grads)
+    grad_mat = compute_score_matrix(var_params, kl_est_and_grad_fun, zs)
 
     expected_cov = (1 / M) * np.cov(grad_mat.T)
     expected_est = lrvb_cov @ expected_cov @ lrvb_cov
 
     return expected_est
+
+
+def compute_hessian_inv_column(var_params, index, hvp_fun, zs):
+
+    oh_encoded = np.zeros(var_params)
+    oh_encoded[index] = 1.0
+
+    rel_hvp = lambda x: hvp_fun(var_params, zs, x)
+    cg_result = cg_using_fun_scipy(rel_hvp, oh_encoded)
+
+    return cg_result
+
+
+def compute_single_frequentist_variance(index, var_params, dadvi_funs, zs):
+
+    # TODO: These could be passed in instead
+    rel_h = compute_hessian_inv_column(var_params, index, dadvi_funs.kl_est_hvp_fun, zs)
+    score_mat = compute_score_matrix(var_params, dadvi_funs.kl_est_and_grad_fun, zs)
+
+    # TODO: Check this is correct
+    score_mat_means = score_mat.mean(axis=0, keepdims=True)
+    centred_score_mat = score_mat - score_mat_means
+    rel_estimate = np.einsum(
+        "l,k,lm,km->", rel_h, rel_h, centred_score_mat, centred_score_mat
+    )
+
+    return rel_estimate
