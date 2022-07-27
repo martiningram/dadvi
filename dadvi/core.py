@@ -7,13 +7,19 @@ from scipy.sparse import diags
 
 
 class DADVIFuns(NamedTuple):
+    """
+    This NamedTuple holds the functions required to run DADVI.
 
-    # Function of eta (variational parameters) and zs (draws)
-    # zs should have shape (M, D), where M is number of fixed draws and D is
-    # problem dimension.
+    Args:
+    kl_est_and_grad_fun: Function of eta (variational parameters) and zs (draws).
+        zs should have shape (M, D), where M is number of fixed draws and D is
+        problem dimension. Returns a tuple whose first argument is the estimate
+        of the KL divergence, and the second is its gradient w.r.t. eta.
+    kl_est_hvp_fun: Function of eta, zs, and b, a vector to compute the hvp
+        with. This should return a vector -- the result of the hvp with b.
+    """
+
     kl_est_and_grad_fun: Callable
-
-    # Function of eta, zs, and b, a vector to compute the hvp with
     kl_est_hvp_fun: Optional[Callable]
 
 
@@ -40,6 +46,10 @@ def find_dadvi_optimum(
 
 
 def get_dadvi_draws(var_params, zs):
+    """
+    Computes draws from the variational approximation given variational
+    parameters and a matrix of fixed draws.
+    """
 
     # TODO: Could use JAX here
     means, log_sds = np.split(var_params, 2)
@@ -108,8 +118,8 @@ def compute_frequentist_covariance_estimate(
 
 def compute_preconditioner_from_var_params(var_params):
 
-    means, log_vars = np.split(var_params, 2)
-    inv_vars = np.concatenate([np.ones_like(log_vars), np.exp(-log_vars)])
+    means, log_sds = np.split(var_params, 2)
+    inv_vars = np.concatenate([np.ones_like(log_sds), np.exp(-2*log_sds)])
     M = diags(inv_vars)
 
     return M
