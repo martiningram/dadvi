@@ -24,7 +24,7 @@ class DADVIFuns(NamedTuple):
 
 
 def find_dadvi_optimum(
-    init_params, zs, dadvi_funs, opt_method="trust-ncg", callback_fun=None
+        init_params, zs, dadvi_funs, opt_method="trust-ncg", callback_fun=None, verbose=False
 ):
 
     val_and_grad_fun = lambda var_params: dadvi_funs.kl_est_and_grad_fun(var_params, zs)
@@ -40,6 +40,7 @@ def find_dadvi_optimum(
         init_params,
         opt_method=opt_method,
         callback_fun=callback_fun,
+        verbose=verbose
     )
 
     return {"opt_result": opt_result, "evaluation_count": eval_count}
