@@ -1,7 +1,6 @@
 import numpy as np
-from typing import NamedTuple, Callable, Optional
+from typing import NamedTuple, Callable, Optional, Dict
 from .optimization import optimize_with_hvp
-from functools import partial
 from .utils import cg_using_fun_scipy
 from scipy.sparse import diags
 
@@ -11,21 +10,55 @@ class DADVIFuns(NamedTuple):
     This NamedTuple holds the functions required to run DADVI.
 
     Args:
-    kl_est_and_grad_fun: Function of eta (variational parameters) and zs (draws).
-        zs should have shape (M, D), where M is number of fixed draws and D is
+    kl_est_and_grad_fun: Function of eta [variational parameters] and zs [draws].
+        zs should have shape [M, D], where M is number of fixed draws and D is
         problem dimension. Returns a tuple whose first argument is the estimate
         of the KL divergence, and the second is its gradient w.r.t. eta.
     kl_est_hvp_fun: Function of eta, zs, and b, a vector to compute the hvp
         with. This should return a vector -- the result of the hvp with b.
     """
 
-    kl_est_and_grad_fun: Callable
-    kl_est_hvp_fun: Optional[Callable]
+    kl_est_and_grad_fun: Callable[[np.ndarray, np.ndarray], np.ndarray]
+    kl_est_hvp_fun: Optional[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]]
 
 
 def find_dadvi_optimum(
-        init_params, zs, dadvi_funs, opt_method="trust-ncg", callback_fun=None, verbose=False
-):
+    init_params: np.ndarray,
+    zs: np.ndarray,
+    dadvi_funs: DADVIFuns,
+    opt_method: str = "trust-ncg",
+    callback_fun: Optional[Callable] = None,
+    verbose: bool = False,
+) -> Dict:
+    """
+    Optimises the DADVI objective.
+
+    Args:
+    init_params: The initial variational parameters to use. This should be a
+        vector of length 2D, where D is the problem dimension. The first D
+        entries specify the variational means, while the last D specify the log
+        standard deviations.
+    zs: The fixed draws to use in the optimisation. They must be of shape
+        [M, D], where D is the problem dimension and M is the number of fixed
+        draws.
+    dadvi_funs: The objective to optimise. See the definition of DADVIFuns for
+        more information. The kl_est_and_grad_fun is required for optimisation;
+        the kl_est_hvp_fun is needed only for some optimisers.
+    opt_method: The optimisation method to use. This must be one of the methods
+        listed for scipy.optimize.minimize
+        [https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html].
+        Defaults to trust-ncg, which requires the hvp to be available. For
+        gradient-only optimisation, L-BFGS-B generally works well.
+    callback_fun: If provided, this callback function is passed to
+        scipy.optimize.minimize. See that function's documentation for more.
+    verbose: If True, prints the progress of the optimisation by showing the
+        value and gradient norm at each iteration of the optimizer.
+
+    Returns:
+    A dictionary with entries "opt_result", containing the results of running
+    scipy.optimize.minimize, and "evaluation_count", containing the number of
+    times the hvp and gradient functions were called.
+    """
 
     val_and_grad_fun = lambda var_params: dadvi_funs.kl_est_and_grad_fun(var_params, zs)
     hvp_fun = (
@@ -40,16 +73,27 @@ def find_dadvi_optimum(
         init_params,
         opt_method=opt_method,
         callback_fun=callback_fun,
-        verbose=verbose
+        verbose=verbose,
     )
 
     return {"opt_result": opt_result, "evaluation_count": eval_count}
 
 
-def get_dadvi_draws(var_params, zs):
+def get_dadvi_draws(var_params: np.ndarray, zs: np.ndarray) -> np.ndarray:
     """
     Computes draws from the variational approximation given variational
     parameters and a matrix of fixed draws.
+
+    Args:
+        var_params: A vector of shape 2D, the first D entries specifying the
+            means for the D model parameters, and the last D the log standard
+            deviations.
+        zs: A matrix of shape [N, D], containing the draws to use to sample the
+            variational approximation.
+
+    Returns:
+    A matrix of shape [N, D] containing N draws from the variational
+    approximation.
     """
 
     # TODO: Could use JAX here
@@ -61,7 +105,26 @@ def get_dadvi_draws(var_params, zs):
     return draws
 
 
-def get_lrvb_draws(opt_means, lrvb_cov, zs):
+def get_lrvb_draws(
+    opt_means: np.ndarray, lrvb_cov: np.ndarray, zs: np.ndarray
+) -> np.ndarray:
+    """
+    Computes draws from the LRVB approximation.
+
+    Args:
+        opt_means: A vector of shape D, where D is the number of model
+            parameters, specifying the means of the variational approximation.
+        lrvb_cov: A matrix of shape [D, D] containing the LRVB covariance of the
+            D model parameters. Optionally, the [2D, 2D] inverted Hessian of the
+            optimum can be passed; in this case, the top left corner will be
+            used.
+        zs: A matrix of shape [N, D] containing the standard normal draws that
+            will be used to generate samples from the LRVB objective.
+
+    Returns:
+    A numpy array of shape [N, D] containing the N draws from the LRVB
+    approximation to the objective.
+    """
 
     # Check if we have more than the top left corner, and discard if so
     if lrvb_cov.shape[0] == 2 * zs.shape[1]:
@@ -75,8 +138,29 @@ def get_lrvb_draws(opt_means, lrvb_cov, zs):
 
 
 def compute_lrvb_covariance_direct_method(
-    opt_params, zs, hvp_fun, top_left_corner_only=True
-):
+    opt_params: np.ndarray,
+    zs: np.ndarray,
+    hvp_fun: Callable,
+    top_left_corner_only: bool = True,
+) -> np.ndarray:
+    """
+    Computes the LRVB covariance matrix.
+
+    Args:
+        opt_params: The variational parameters at the optimum. This is a vector
+            of length 2D, the first D representing the the variational means,
+            the second D the log standard deviations.
+        zs: The fixed draws which were used to obtain the optimal parameters. A
+            matrix of shape [M, D].
+        hvp_fun: The hvp function of the DADVI objective, as defined in
+            DADVIFuns.
+        top_left_corner_only: If True, only the top left [D, D] corner of the
+            full [2D, 2D] LRVB covariance matrix is returned.
+
+    Returns:
+    The [2D, 2D] LRVB covariance if top_left_corner_only = False, otherwise the
+    [D, D] covariance corresponding to the model parameters.
+    """
 
     rel_hvp_fun = lambda b: hvp_fun(opt_params, zs, b)
     target_vecs = np.eye(opt_params.shape[0])
@@ -119,9 +203,9 @@ def compute_frequentist_covariance_estimate(
 
 def compute_preconditioner_from_var_params(var_params):
 
-    means, log_sds = np.split(var_params, 2)
-    inv_vars = np.concatenate([np.ones_like(log_sds), np.exp(-2*log_sds)])
-    M = diags(inv_vars)
+    _, log_sds = np.split(var_params, 2)
+    variances = np.concatenate([np.ones_like(log_sds), np.exp(2 * log_sds)])
+    M = diags(variances)
 
     return M
 
@@ -138,13 +222,16 @@ def compute_hessian_inv_column(var_params, index, hvp_fun, zs, preconditioner=No
     return cg_result[0], success
 
 
-def compute_single_frequentist_variance(index, var_params, dadvi_funs, zs, preconditioner=None):
+def compute_single_frequentist_variance(
+    index, var_params, dadvi_funs, zs, preconditioner=None
+):
 
     M = zs.shape[0]
 
     # TODO: These could be passed in instead
-    rel_h, success = compute_hessian_inv_column(var_params, index, dadvi_funs.kl_est_hvp_fun, zs,
-                                                preconditioner=preconditioner)
+    rel_h, _ = compute_hessian_inv_column(
+        var_params, index, dadvi_funs.kl_est_hvp_fun, zs, preconditioner=preconditioner
+    )
     score_mat = compute_score_matrix(var_params, dadvi_funs.kl_est_and_grad_fun, zs)
 
     # TODO: Check this is correct
