@@ -2,9 +2,9 @@ import numpy as np
 from .core import get_dadvi_draws, DADVIFuns
 
 
-def build_dadvi_funs(log_posterior_fun, log_posterior_grad_fun):
-    # TODO: Optionally add hvp?
-
+def build_dadvi_funs(
+    log_posterior_fun, log_posterior_grad_fun, log_posterior_hvp_fun=None
+):
     def kl_est_fun(var_params, zs):
 
         _, log_sds = np.split(var_params, 2)
@@ -22,4 +22,40 @@ def build_dadvi_funs(log_posterior_fun, log_posterior_grad_fun):
 
         return -(mean_log_prob + entropy), np.concatenate([-grad_of_mean, -grad_log_sd])
 
-    return DADVIFuns(kl_est_and_grad_fun=kl_est_fun, kl_est_hvp_fun=None)
+    if log_posterior_hvp_fun is None:
+        return DADVIFuns(kl_est_and_grad_fun=kl_est_fun, kl_est_hvp_fun=None)
+
+    # Otherwise, compute hvp
+    def kl_est_hvp(var_params, zs, b):
+
+        eta_1, eta_2 = np.split(b, 2)
+        _, log_sigma = np.split(var_params, 2)
+        sigma = np.exp(log_sigma)
+
+        full_hvp = np.zeros_like(var_params)
+
+        for cur_z in zs:
+
+            cur_draw = get_dadvi_draws(var_params, np.array([cur_z]))
+            cur_g = log_posterior_grad_fun(cur_draw)
+
+            sigma_z = sigma * cur_z
+
+            # First part of hvp:
+            top_part = log_posterior_hvp_fun(cur_draw, eta_1 + sigma_z * eta_2)
+            H_eta_1 = log_posterior_hvp_fun(cur_draw, eta_1)
+            H_term_2 = log_posterior_hvp_fun(cur_draw, sigma_z)
+
+            bottom_term_1 = sigma_z * H_eta_1
+            bottom_term_2 = H_term_2 * (sigma_z @ eta_2)
+            bottom_term_3 = cur_g * sigma_z * eta_2
+
+            bottom_part = bottom_term_1 + bottom_term_2 + bottom_term_3
+
+            cur_hvp = np.concatenate([top_part, bottom_part])
+
+            full_hvp += cur_hvp
+
+        return -(full_hvp / zs.shape[0])
+
+    return DADVIFuns(kl_est_fun, kl_est_hvp)

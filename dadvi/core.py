@@ -81,8 +81,8 @@ def find_dadvi_optimum(
 
 def get_dadvi_draws(var_params: np.ndarray, zs: np.ndarray) -> np.ndarray:
     """
-    Computes draws from the variational approximation given variational
-    parameters and a matrix of fixed draws.
+    Computes draws from the mean-field variational approximation given
+    variational parameters and a matrix of fixed draws.
 
     Args:
         var_params: A vector of shape 2D, the first D entries specifying the
