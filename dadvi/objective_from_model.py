@@ -42,10 +42,10 @@ def build_dadvi_funs(
             sigma_z = sigma * cur_z
 
             # First part of hvp:
-            top_part = log_posterior_hvp_fun(cur_draw, eta_1 + sigma_z * eta_2)
             H_eta_1 = log_posterior_hvp_fun(cur_draw, eta_1)
-
             H_term_2 = log_posterior_hvp_fun(cur_draw, eta_2 * sigma_z)
+
+            top_part = H_eta_1 + H_term_2
 
             bottom_term_1 = sigma_z * H_eta_1
             bottom_term_2 = H_term_2 * sigma_z
