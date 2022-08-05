@@ -29,14 +29,14 @@ def build_dadvi_funs(
     def kl_est_hvp(var_params, zs, b):
 
         eta_1, eta_2 = np.split(b, 2)
-        _, log_sigma = np.split(var_params, 2)
+        mu, log_sigma = np.split(var_params, 2)
         sigma = np.exp(log_sigma)
 
         full_hvp = np.zeros_like(var_params)
 
         for cur_z in zs:
 
-            cur_draw = get_dadvi_draws(var_params, np.array([cur_z]))
+            cur_draw = cur_z * sigma + mu
             cur_g = log_posterior_grad_fun(cur_draw)
 
             sigma_z = sigma * cur_z
@@ -44,10 +44,11 @@ def build_dadvi_funs(
             # First part of hvp:
             top_part = log_posterior_hvp_fun(cur_draw, eta_1 + sigma_z * eta_2)
             H_eta_1 = log_posterior_hvp_fun(cur_draw, eta_1)
-            H_term_2 = log_posterior_hvp_fun(cur_draw, sigma_z)
+
+            H_term_2 = log_posterior_hvp_fun(cur_draw, eta_2 * sigma_z)
 
             bottom_term_1 = sigma_z * H_eta_1
-            bottom_term_2 = H_term_2 * (sigma_z @ eta_2)
+            bottom_term_2 = H_term_2 * sigma_z
             bottom_term_3 = cur_g * sigma_z * eta_2
 
             bottom_part = bottom_term_1 + bottom_term_2 + bottom_term_3
