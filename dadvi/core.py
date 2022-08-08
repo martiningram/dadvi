@@ -178,6 +178,20 @@ def compute_lrvb_covariance_direct_method(
 
 
 def compute_score_matrix(var_params, kl_est_and_grad_fun, zs):
+    """
+    Computes the matrix of gradients w.r.t. the variational parameters at each
+    of the fixed draws z.
+
+    Args:
+        var_params: The variational parameters to use to calculate the
+            gradients.
+        kl_est_and_grad_fun: The function returning the value and gradient of
+            the DADVI KL estimate, as defined in DADVIFuns.
+        zs: The [M, D] matrix of fixed draws.
+
+    Returns:
+    An [M, 2D] matrix containing the gradients evaluated at each fixed draw.
+    """
 
     individual_grads = [
         kl_est_and_grad_fun(var_params, cur_z.reshape(1, -1))[1] for cur_z in zs
@@ -190,6 +204,20 @@ def compute_score_matrix(var_params, kl_est_and_grad_fun, zs):
 def compute_frequentist_covariance_estimate(
     var_params, kl_est_and_grad_fun, zs, lrvb_cov
 ):
+    """
+    Computes the frequentist covariance estimate, which estimates the error
+    introduced by using fixed draws.
+
+    Args:
+        var_params: The variational parameter vector.
+        kl_est_and_grad_fun: The function returning the value and gradient of
+            the DADVI KL estimate, as defined in DADVIFuns.
+        zs: The [M, D] matrix of fixed draws.
+        lrvb_cov: The LRVB covariance matrix.
+
+    Returns:
+    The frequentist covariance matrix.
+    """
 
     M = zs.shape[0]
 
@@ -202,6 +230,10 @@ def compute_frequentist_covariance_estimate(
 
 
 def compute_preconditioner_from_var_params(var_params):
+    """
+    Computes a diaagonal preconditioning matrix for CG from the variational
+    parameters.
+    """
 
     _, log_sds = np.split(var_params, 2)
     variances = np.concatenate([np.ones_like(log_sds), np.exp(2 * log_sds)])
@@ -211,6 +243,21 @@ def compute_preconditioner_from_var_params(var_params):
 
 
 def compute_hessian_inv_column(var_params, index, hvp_fun, zs, preconditioner=None):
+    """
+    Computes a single column of the LRVB covariance matrix using CG.
+
+    Args:
+        var_params: The vector of variational parameters.
+        index: The index of the column to compute.
+        hvp_fun: The HVP of the DADVI objective as defined in DADVIFuns.
+        zs: The matrix of fixed draws to use.
+        preconditioner: An optional preconditioner for use with
+            scipy.sparse.linalg.cg.
+
+    Returns:
+    A Tuple whose first element is the result of the CG iterations, and the
+    second is a boolean success flag.
+    """
 
     oh_encoded = np.zeros_like(var_params)
     oh_encoded[index] = 1.0
@@ -225,6 +272,21 @@ def compute_hessian_inv_column(var_params, index, hvp_fun, zs, preconditioner=No
 def compute_single_frequentist_variance(
     index, var_params, dadvi_funs, zs, preconditioner=None
 ):
+    """
+    Computes a single element on the diagonal of the frequentist covariance
+    matrix using CG.
+
+    Args:
+        index: The index of the diagonal to compute.
+        var_params: The vector of variational parameters.
+        dadvi_funs: The DADVIFuns to use for the computation.
+        zs: The matrix of fixed draws to use.
+        preconditioner: The preconditioner to use in CG, defined as in
+            scipy.sparse.linalg.cg.
+
+    Returns:
+    Element [index, index] of the frequentist covariance estimate.
+    """
 
     M = zs.shape[0]
 

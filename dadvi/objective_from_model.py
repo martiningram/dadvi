@@ -5,6 +5,25 @@ from .core import get_dadvi_draws, DADVIFuns
 def build_dadvi_funs(
     log_posterior_fun, log_posterior_grad_fun, log_posterior_hvp_fun=None
 ):
+    """
+    Builds DADVIFuns -- i.e., value, gradient and hvp of the DADVI objective --
+    from the log posterior density, its gradient and, optionally, its hvp.
+
+    Args:
+        log_posterior_fun: The log posterior density. Must take a vector of
+            length D and return a scalar, the log posterior density for the
+            parameters.
+        log_posterior_grad_fun: The gradient of the log posterior density. Must
+            take a vector of length D and return a vector of the same length.
+        log_posterior_hvp_fun: Optional. If provided, must be a function taking
+            two vectors, both of length D, and computing the product of the
+            Hessian of the log posterior density, evaluated at the first vector,
+            multiplied with the second vector.
+
+    Returns:
+    The DADVIFuns as defined in the core module.
+    """
+
     def kl_est_fun(var_params, zs):
 
         _, log_sds = np.split(var_params, 2)
