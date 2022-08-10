@@ -1,5 +1,7 @@
 from jax.flatten_util import ravel_pytree
-from pymc.sampling_jax import get_jaxified_logp
+from pymc.sampling_jax import get_jaxified_logp, get_jaxified_graph
+import jax
+from pymc.util import get_default_varnames
 
 
 def get_logp_fn_dict(logp_fn, var_names):
@@ -39,3 +41,26 @@ def get_jax_functions_from_pymc(pymc_model):
         "unflatten_fun": fun,
         "n_params": flat_init.shape[0],
     }
+
+
+def transform_dadvi_draws(
+    pymc_model, flat_dadvi_draws, unflatten_fun, keep_untransformed=False
+):
+    # TODO: Maybe should take unflattened draws as input instead
+
+    non_flat = jax.vmap(unflatten_fun)(flat_dadvi_draws)
+    list_version = [non_flat[x.name] for x in pymc_model.value_vars]
+
+    var_names = pymc_model.unobserved_value_vars
+    keep_untransformed = False
+
+    vars_to_sample = list(
+        get_default_varnames(var_names, include_transformed=keep_untransformed)
+    )
+
+    jax_fn = get_jaxified_graph(inputs=pymc_model.value_vars, outputs=vars_to_sample)
+
+    list_res = jax.vmap(jax_fn)(*list_version)
+    samples = {v.name: r for v, r in zip(vars_to_sample, list_res)}
+
+    return samples
