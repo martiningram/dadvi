@@ -2,6 +2,7 @@ from jax.flatten_util import ravel_pytree
 from pymc.sampling_jax import get_jaxified_logp, get_jaxified_graph
 import jax
 from pymc.util import get_default_varnames
+import numpy as np
 
 
 def get_logp_fn_dict(logp_fn, var_names):
@@ -26,6 +27,16 @@ def get_basic_init_from_pymc(pymc_model):
 
 
 def get_jax_functions_from_pymc(pymc_model):
+    """
+    Given a PyMC model, builds functions for computing posterior densities with JAX.
+    Args:
+        pymc_model: The PyMC model object.
+    Returns:
+    A dictionary containing three elements: "log_posterior_fun" is the log posterior
+    density, as a function of a flat parameter vector; "unflatten_fun" turns a flat
+    parameter vector back into a dictionary; and "n_params" is the number of parameters
+    in the model.
+    """
 
     var_names, init_state, logp_fn_jax = get_basic_init_from_pymc(pymc_model)
     logp_fn_dict = get_logp_fn_dict(logp_fn_jax, var_names)
@@ -44,7 +55,11 @@ def get_jax_functions_from_pymc(pymc_model):
 
 
 def transform_dadvi_draws(
-    pymc_model, flat_dadvi_draws, unflatten_fun, keep_untransformed=False
+    pymc_model,
+    flat_dadvi_draws,
+    unflatten_fun,
+    keep_untransformed=False,
+    add_chain_dim=False,
 ):
     # TODO: Maybe should take unflattened draws as input instead
 
@@ -62,5 +77,8 @@ def transform_dadvi_draws(
 
     list_res = jax.vmap(jax_fn)(*list_version)
     samples = {v.name: r for v, r in zip(vars_to_sample, list_res)}
+
+    if add_chain_dim:
+        samples = {x: np.expand_dims(y, axis=0) for x, y in samples.items()}
 
     return samples
