@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
-from config import ARM_CONFIG_CSV_PATH, ARM_JSON_PATH, MICROCREDIT_JSON_PATH
+from config import ARM_CONFIG_CSV_PATH, ARM_JSON_PATH, MICROCREDIT_JSON_PATH, OCC_DET_PICKLE_PATH, POTUS_JSON_PATH
 from dadvi.pymc.models.arm import load_arm_model, add_bambi_family
 from dadvi.pymc.models.microcredit import load_microcredit_model
+from dadvi.pymc.models.occ_det import get_occ_det_model_from_pickle
+from dadvi.pymc.models.potus import get_potus_model
 
 
 NON_ARM_MODELS = ["microcredit", "occ_det", "potus", "tennis"]
@@ -13,6 +15,14 @@ def load_model_by_name(model_name):
     if model_name == "microcredit":
 
         model = load_microcredit_model(MICROCREDIT_JSON_PATH)
+
+    elif model_name == 'occ_det':
+
+        model = get_occ_det_model_from_pickle(OCC_DET_PICKLE_PATH)
+
+    elif model_name == 'potus':
+
+        model = get_potus_model(POTUS_JSON_PATH)
 
     else:
 
