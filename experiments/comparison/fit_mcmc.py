@@ -4,20 +4,15 @@ from os.path import join
 import numpy as np
 import time
 import pandas as pd
-import pymc as pm
-
-
-def arviz_to_draw_dict(az_trace):
-    # Converts an arviz trace to a dict of str -> np.ndarray
-
-    dict_version = dict(az_trace.posterior.data_vars.variables)
-
-    return {x: y.values for x, y in dict_version.items()}
-
 
 if __name__ == "__main__":
 
-    from utils import load_model_by_name
+    import multiprocessing
+
+    multiprocessing.set_start_method("fork")
+
+    import pymc as pm
+    from utils import load_model_by_name, arviz_to_draw_dict
 
     model_name = sys.argv[1]
     model = load_model_by_name(model_name)

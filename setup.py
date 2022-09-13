@@ -8,7 +8,7 @@ setup(
     version=getenv("VERSION", "LOCAL"),
     description="Deterministic ADVI",
     packages=find_packages(),
-    install_requires=["numpyro", "pymc>=4", 'scikit-learn'],
+    install_requires=["numpyro", "pymc>=4", "scikit-learn", "toolz"],
     extras_require={
         "viabel": [
             "pystan==2.19.1.1",

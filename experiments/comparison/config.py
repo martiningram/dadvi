@@ -6,7 +6,8 @@ ARM_JSON_PATH = "/Users/martin.ingram/Projects/PhD/SharedExampleModels/ARM_json/
 MICROCREDIT_JSON_PATH = (
     "/Users/martin.ingram/Projects/PhD/dadvi/examples/stan_fit_data.json"
 )
-OCC_DET_PICKLE_PATH = (
-    "/Users/martin.ingram/Projects/PhD/dadvi/examples/occu_subset.pkl"
+OCC_DET_PICKLE_PATH = "/Users/martin.ingram/Projects/PhD/dadvi/examples/occu_subset.pkl"
+POTUS_JSON_PATH = (
+    "/Users/martin.ingram/Projects/PhD/dadvi/jupyter/exported_stan_data_2016.json"
 )
-POTUS_JSON_PATH= "/Users/martin.ingram/Projects/PhD/dadvi/jupyter/exported_stan_data_2016.json"
+SACKMANN_DIR = "/Users/martin.ingram/Projects/personal/tennis/tennis_atp/"
