@@ -1,13 +1,7 @@
 # TODO: Maybe these could all live in a folder or something
-ARM_CONFIG_CSV_PATH = (
-    "/Users/martin.ingram/Projects/PhD/SharedExampleModels/ARM/rstanarm_ij_configs.csv"
-)
-ARM_JSON_PATH = "/Users/martin.ingram/Projects/PhD/SharedExampleModels/ARM_json/"
-MICROCREDIT_JSON_PATH = (
-    "/Users/martin.ingram/Projects/PhD/dadvi/examples/stan_fit_data.json"
-)
-OCC_DET_PICKLE_PATH = "/Users/martin.ingram/Projects/PhD/dadvi/examples/occu_subset.pkl"
-POTUS_JSON_PATH = (
-    "/Users/martin.ingram/Projects/PhD/dadvi/jupyter/exported_stan_data_2016.json"
-)
-SACKMANN_DIR = "/Users/martin.ingram/Projects/personal/tennis/tennis_atp/"
+ARM_CONFIG_CSV_PATH = "data/rstanarm_ij_configs.csv"
+ARM_JSON_PATH = "data/ARM_json/"
+MICROCREDIT_JSON_PATH = "data/microcredit_data.json"
+OCC_DET_PICKLE_PATH = "data/occu_data.pkl"
+POTUS_JSON_PATH = "data/potus_data.json"
+SACKMANN_DIR = "data/tennis_atp"
