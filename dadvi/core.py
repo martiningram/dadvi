@@ -1,8 +1,14 @@
-import numpy as np
+"""
+Core computations for DADVI.
+"""
+
 from typing import NamedTuple, Callable, Optional, Dict
-from .optimization import optimize_with_hvp
-from .utils import cg_using_fun_scipy
+
 from scipy.sparse import diags
+
+import numpy as np
+from dadvi.optimization import optimize_with_hvp
+from dadvi.utils import cg_using_fun_scipy
 
 
 class DADVIFuns(NamedTuple):
