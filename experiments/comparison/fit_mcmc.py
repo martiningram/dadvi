@@ -17,11 +17,16 @@ if __name__ == "__main__":
     model_name = sys.argv[1]
     model = load_model_by_name(model_name)
 
+
     print("Fitting")
     start_time = time.time()
 
     with model as m:
-        fit_result_nuts = pm.sample()
+        if model_name in ['potus', 'occ_det']:
+            fit_result_nuts = pm.sample(cores=1, chains=4)
+        else:
+            # Use the defaults
+            fit_result_nuts = pm.sample()
 
     end_time = time.time()
     runtime = end_time - start_time
