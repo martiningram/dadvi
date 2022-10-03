@@ -1,0 +1,8 @@
+*.pyc
+.DS_Store
+*.npz
+*.pkl
+*.csv
+*.ipynb
+*.json
+*.netcdf
