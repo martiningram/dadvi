@@ -61,6 +61,8 @@ def optimise_dadvi_by_doubling(
     to the variational standard deviations drops below the specified ratio.
     """
 
+    assert start_m_power < max_m_power, "Minimum power for M must be smaller than maximum power!"
+
     np.random.seed(seed)
 
     n_model_params = init_params.shape[0] // 2
