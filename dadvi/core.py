@@ -150,7 +150,7 @@ def compute_lrvb_covariance_direct_method(
     top_left_corner_only: bool = True,
 ) -> np.ndarray:
     """
-    Computes the LRVB covariance matrix.
+    Computes the LRVB covariance matrix by forming and inverting the Hessian.
 
     Args:
         opt_params: The variational parameters at the optimum. This is a vector
@@ -181,6 +181,60 @@ def compute_lrvb_covariance_direct_method(
         return lrvb_cov_full[:n_rel, :n_rel]
     else:
         return lrvb_cov_full
+
+
+def compute_lrvb_covariance_cg(
+    opt_params: np.ndarray,
+    zs: np.ndarray,
+    hvp_fun: Callable,
+    top_left_corner_only: bool = True,
+) -> np.ndarray:
+    """
+    Computes the LRVB covariance matrix by conjugate gradients.
+
+    Args:
+        opt_params: The variational parameters at the optimum. This is a vector
+            of length 2D, the first D representing the the variational means,
+            the second D the log standard deviations.
+        zs: The fixed draws which were used to obtain the optimal parameters. A
+            matrix of shape [M, D].
+        hvp_fun: The hvp function of the DADVI objective, as defined in
+            DADVIFuns.
+        top_left_corner_only: If True, only the top left [D, D] corner of the
+            full [2D, 2D] LRVB covariance matrix is returned.
+
+    Returns:
+    The [2D, 2D] LRVB covariance if top_left_corner_only = False, otherwise the
+    [D, D] covariance corresponding to the model parameters.
+    """
+
+    preconditioner = compute_preconditioner_from_var_params(opt_params)
+
+    D = zs.shape[1]
+
+    if top_left_corner_only:
+        relevant_indices = np.arange(D)
+    else:
+        relevant_indices = np.arange(2 * D)
+
+    columns = list()
+
+    for cur_index in relevant_indices:
+
+        cur_column, _ = compute_hessian_inv_column(
+            opt_params, cur_index, hvp_fun, zs, preconditioner=preconditioner
+        )
+
+        if top_left_corner_only:
+            # We only need the first D entries
+            columns.append(cur_column[:D])
+        else:
+            # We keep all of them
+            columns.append(cur_column)
+
+    full_result = np.stack(columns, axis=1)
+
+    return full_result
 
 
 def compute_score_matrix(var_params, kl_est_and_grad_fun, zs):
@@ -241,7 +295,7 @@ def compute_preconditioner_from_var_params(var_params):
     parameters.
     """
 
-    _, log_sds = np.split(var_params, 2)
+    log_sds = np.split(var_params, 2)[1]
     variances = np.concatenate([np.ones_like(log_sds), np.exp(2 * log_sds)])
     M = diags(variances)
 
