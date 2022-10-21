@@ -57,11 +57,14 @@ def optimise_dadvi_by_doubling(
     **kwargs
 ):
     """
-    Repeatedly doubles the number of fixed draws until the ratio of the frequentist standard deviations
-    to the variational standard deviations drops below the specified ratio.
+    Repeatedly doubles the number of fixed draws until the ratio of the frequentist
+    standard deviations to the variational standard deviations drops below the
+    specified ratio.
     """
 
-    assert start_m_power < max_m_power, "Minimum power for M must be smaller than maximum power!"
+    assert (
+        start_m_power < max_m_power
+    ), "Minimum power for M must be smaller than maximum power!"
 
     np.random.seed(seed)
 
