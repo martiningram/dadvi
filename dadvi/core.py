@@ -82,7 +82,18 @@ def find_dadvi_optimum(
         verbose=verbose,
     )
 
-    return {"opt_result": opt_result, "evaluation_count": eval_count}
+    to_return = {
+        "opt_result": opt_result,
+        "evaluation_count": eval_count,
+    }
+
+    # If available, use hvp to check convergence
+    if dadvi_funs.kl_est_hvp_fun is not None:
+        to_return["newton_step_norm"] = compute_newton_step_norm(
+            opt_result.x, zs, dadvi_funs
+        )
+
+    return to_return
 
 
 def get_dadvi_draws(var_params: np.ndarray, zs: np.ndarray) -> np.ndarray:
@@ -181,6 +192,27 @@ def compute_lrvb_covariance_direct_method(
         return lrvb_cov_full[:n_rel, :n_rel]
     else:
         return lrvb_cov_full
+
+
+def compute_newton_step_norm(
+    parameters: np.ndarray, zs: np.ndarray, dadvi_funs: DADVIFuns
+) -> float:
+    """
+    Computes the norm of a Newton step in optimisation. Helpful to check whether DADVI converged.
+    """
+
+    assert (
+        dadvi_funs.kl_est_hvp_fun is not None
+    ), "Can only compute Newton step norm if hvp is available!"
+
+    cur_gradient = dadvi_funs.kl_est_and_grad_fun(parameters, zs)[1]
+    hess_fun = lambda vector: dadvi_funs.kl_est_hvp_fun(parameters, zs, vector)
+
+    # Compute H^{-1} g by CG:
+    h_inv_g = cg_using_fun_scipy(hess_fun, cur_gradient, preconditioner=None)[0]
+    h_inv_g_norm = np.linalg.norm(h_inv_g)
+
+    return h_inv_g_norm
 
 
 def compute_lrvb_covariance_cg(
