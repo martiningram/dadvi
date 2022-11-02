@@ -63,7 +63,7 @@ def optimise_dadvi_by_doubling(
     """
 
     assert (
-        start_m_power < max_m_power
+        start_m_power <= max_m_power
     ), "Minimum power for M must be smaller than maximum power!"
 
     np.random.seed(seed)
