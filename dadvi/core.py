@@ -89,8 +89,9 @@ def find_dadvi_optimum(
 
     # If available, use hvp to check convergence
     if dadvi_funs.kl_est_hvp_fun is not None:
-        to_return["newton_step_norm"] = compute_newton_step_norm(
-            opt_result.x, zs, dadvi_funs
+        problem_dimension = zs.shape[1]
+        to_return["newton_step_norm"] = (
+            compute_newton_step_norm(opt_result.x, zs, dadvi_funs) / problem_dimension
         )
 
     return to_return
