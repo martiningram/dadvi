@@ -50,8 +50,8 @@ def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
 def optimise_dadvi_by_doubling(
     init_params,
     dadvi_funs,
-    start_m_power=2,
-    max_m_power=7,
+    start_m=20,
+    max_m=160,
     seed=2,
     max_freq_to_posterior_ratio=0.5,
     **kwargs
@@ -62,17 +62,15 @@ def optimise_dadvi_by_doubling(
     specified ratio.
     """
 
-    assert (
-        start_m_power <= max_m_power
-    ), "Minimum power for M must be smaller than maximum power!"
+    assert start_m <= max_m, "Minimum M must be smaller than maximum M!"
 
     np.random.seed(seed)
 
     n_model_params = init_params.shape[0] // 2
 
-    for cur_m_power in range(start_m_power, max_m_power + 1):
+    cur_m = start_m
 
-        cur_m = 2**cur_m_power
+    while cur_m <= max_m:
 
         # Make current fixed draws
         zs = np.random.randn(cur_m, n_model_params)
@@ -92,6 +90,8 @@ def optimise_dadvi_by_doubling(
 
         if ratio_is_ok:
             break
+
+        cur_m = 2 * cur_m
 
     return {
         "dadvi_result": dadvi_result,
