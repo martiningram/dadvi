@@ -90,8 +90,11 @@ def find_dadvi_optimum(
     # If available, use hvp to check convergence
     if dadvi_funs.kl_est_hvp_fun is not None:
         problem_dimension = zs.shape[1]
+        to_return["newton_step"] = compute_newton_step_vector(
+            opt_result.x, zs, dadvi_funs
+        )
         to_return["newton_step_norm"] = (
-            compute_newton_step_norm(opt_result.x, zs, dadvi_funs) / problem_dimension
+            np.linalg.norm(to_return["newton_step"]) / problem_dimension
         )
 
     return to_return
@@ -195,11 +198,11 @@ def compute_lrvb_covariance_direct_method(
         return lrvb_cov_full
 
 
-def compute_newton_step_norm(
+def compute_newton_step_vector(
     parameters: np.ndarray, zs: np.ndarray, dadvi_funs: DADVIFuns
-) -> float:
+) -> np.ndarray:
     """
-    Computes the norm of a Newton step in optimisation. Helpful to check whether DADVI converged.
+    Computes the full vector of a Newton step. Useful for assessing convergence.
     """
 
     assert (
@@ -211,6 +214,18 @@ def compute_newton_step_norm(
 
     # Compute H^{-1} g by CG:
     h_inv_g = cg_using_fun_scipy(hess_fun, cur_gradient, preconditioner=None)[0]
+
+    return h_inv_g
+
+
+def compute_newton_step_norm(
+    parameters: np.ndarray, zs: np.ndarray, dadvi_funs: DADVIFuns
+) -> float:
+    """
+    Computes the norm of a Newton step in optimisation. Helpful to check whether DADVI converged.
+    """
+
+    h_inv_g = compute_newton_step_vector(parameters, zs, dadvi_funs)
     h_inv_g_norm = np.linalg.norm(h_inv_g)
 
     return h_inv_g_norm
@@ -316,7 +331,8 @@ def compute_frequentist_covariance_estimate(
 
     grad_mat = compute_score_matrix(var_params, kl_est_and_grad_fun, zs)
 
-    expected_cov = (1 / M) * np.cov(grad_mat.T)
+    # TODO: Do we need to discuss the denominator?
+    expected_cov = (1 / (M - 1)) * np.cov(grad_mat.T)
     expected_est = lrvb_cov @ expected_cov @ lrvb_cov
 
     return expected_est
@@ -383,18 +399,36 @@ def compute_single_frequentist_variance(
 
     M = zs.shape[0]
 
-    # TODO: These could be passed in instead
     rel_h, _ = compute_hessian_inv_column(
         var_params, index, dadvi_funs.kl_est_hvp_fun, zs, preconditioner=preconditioner
     )
     score_mat = compute_score_matrix(var_params, dadvi_funs.kl_est_and_grad_fun, zs)
 
-    # TODO: Check this is correct
+    variance = compute_frequentist_covariance_using_score_mat(
+        np.expand_dims(rel_h, axis=0), np.expand_dims(rel_h, axis=0), score_mat, M
+    )[0, 0]
+
+    return variance
+
+
+def compute_frequentist_covariance_using_score_mat(
+    hessian_cols1, hessian_cols2, score_mat, M
+):
+    """
+    See "compute_single_frequentist_variance". Computes the same quantity, but
+    using the relevant column of the Hessian and the score matrix rather than
+    computing it first.
+    """
+
     score_mat_means = score_mat.mean(axis=0, keepdims=True)
     centred_score_mat = score_mat - score_mat_means
 
     rel_estimate = np.einsum(
-        "l,k,ml,mk->", rel_h, rel_h, centred_score_mat, centred_score_mat
+        "il,jk,ml,mk->ij",
+        hessian_cols1,
+        hessian_cols2,
+        centred_score_mat,
+        centred_score_mat,
     )
 
-    return (1 / M**2) * rel_estimate
+    return (1 / (M - 1) ** 2) * rel_estimate
