@@ -30,3 +30,12 @@ def arviz_to_draw_dict(az_trace):
     dict_version = dict(az_trace.posterior.data_vars.variables)
 
     return {x: y.values for x, y in dict_version.items()}
+
+
+def get_unconstrained_variable_names(pymc_model):
+    # Gets the names of the unconstrained parameters in the model (i.e. only the
+    # ones required to compute the log density).
+
+    rv_names = [rv.name for rv in pymc_model.value_vars]
+
+    return rv_names
