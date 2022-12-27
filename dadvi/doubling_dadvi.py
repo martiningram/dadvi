@@ -8,6 +8,7 @@ from dadvi.core import (
     compute_lrvb_covariance_direct_method,
     find_dadvi_optimum,
 )
+from dadvi.utils import opt_callback_fun
 
 
 def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
@@ -50,8 +51,8 @@ def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
 def optimise_dadvi_by_doubling(
     init_params,
     dadvi_funs,
-    start_m_power=2,
-    max_m_power=7,
+    start_m=20,
+    max_m=160,
     seed=2,
     max_freq_to_posterior_ratio=0.5,
     **kwargs
@@ -62,17 +63,19 @@ def optimise_dadvi_by_doubling(
     specified ratio.
     """
 
-    assert (
-        start_m_power <= max_m_power
-    ), "Minimum power for M must be smaller than maximum power!"
+    assert start_m <= max_m, "Minimum M must be smaller than maximum M!"
 
     np.random.seed(seed)
 
     n_model_params = init_params.shape[0] // 2
 
-    for cur_m_power in range(start_m_power, max_m_power + 1):
+    cur_m = start_m
 
-        cur_m = 2**cur_m_power
+    results = dict()
+
+    while cur_m <= max_m:
+
+        opt_callback_fun.opt_sequence = []
 
         # Make current fixed draws
         zs = np.random.randn(cur_m, n_model_params)
@@ -90,13 +93,18 @@ def optimise_dadvi_by_doubling(
 
         ratio_is_ok = freq_to_posterior_ratio < max_freq_to_posterior_ratio
 
+        results[cur_m] = {
+            "dadvi_result": dadvi_result,
+            "zs": zs,
+            "ratio": freq_to_posterior_ratio,
+            "ratio_is_ok": ratio_is_ok,
+            "M": cur_m,
+            "opt_sequence": list(opt_callback_fun.opt_sequence),
+        }
+
         if ratio_is_ok:
             break
 
-    return {
-        "dadvi_result": dadvi_result,
-        "zs": zs,
-        "ratio": freq_to_posterior_ratio,
-        "ratio_is_ok": ratio_is_ok,
-        "M": cur_m,
-    }
+        cur_m = 2 * cur_m
+
+    return results
