@@ -9,6 +9,7 @@ from dadvi.core import (
     find_dadvi_optimum,
 )
 from dadvi.utils import opt_callback_fun
+from dadvi.optimization import count_decorator
 
 
 def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
@@ -23,13 +24,21 @@ def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
 
     opt_var_params = opt["opt_result"]["x"]
 
+    hvp_fun_with_count = count_decorator(dadvi_funs.kl_est_hvp_fun)
+    kl_grad_fun_with_count = count_decorator(dadvi_funs.kl_est_and_grad_fun)
+
     # Compute LRVB covariance estimate and use it to estimate the frequentist covariance matrix
     lrvb_cov = compute_lrvb_covariance_direct_method(
-        opt_var_params, zs, dadvi_funs.kl_est_hvp_fun, top_left_corner_only=False
+        opt_var_params, zs, hvp_fun_with_count, top_left_corner_only=False
     )
+
+    lrvb_hvp_count = hvp_fun_with_count.calls
+
     freq_cov = compute_frequentist_covariance_estimate(
-        opt_var_params, dadvi_funs.kl_est_and_grad_fun, zs, lrvb_cov
+        opt_var_params, kl_grad_fun_with_count, zs, lrvb_cov
     )
+
+    lrvb_freq_count = kl_grad_fun_with_count.calls
 
     # Compute the frequentist standard deviation of the means
     frequentist_variances = np.diag(freq_cov)
@@ -45,6 +54,8 @@ def fit_dadvi_and_estimate_covariances(init_params, zs, dadvi_funs, **kwargs):
         "frequentist_covariance": freq_cov,
         "frequentist_mean_sds": frequentist_mean_sds,
         "variational_sds": variational_sds,
+        "lrvb_hvp_calls": lrvb_hvp_count,
+        "lrvb_freq_cov_grad_calls": lrvb_freq_count,
     }
 
 
