@@ -67,7 +67,6 @@ def transform_dadvi_draws(
     list_version = [non_flat[x.name] for x in pymc_model.value_vars]
 
     var_names = pymc_model.unobserved_value_vars
-    keep_untransformed = False
 
     vars_to_sample = list(
         get_default_varnames(var_names, include_transformed=keep_untransformed)
