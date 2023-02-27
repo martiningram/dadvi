@@ -10,8 +10,13 @@ def load_microcredit_model(microcredit_json_path):
 
     np_data = {x: np.squeeze(np.array(y)) for x, y in loaded.items()}
 
+    # Number of sites
     K = np_data["K"]
+
+    # Number of categories (negative, zero, positive)
     M = np_data["M"]
+
+    # Dimensionality of beta parameter
     P = np_data["P"]
 
     with pm.Model() as m:
@@ -42,6 +47,8 @@ def load_microcredit_model(microcredit_json_path):
         beta_k_raw = pm.Normal("beta_k_raw", mu=0.0, sigma=1.0, shape=(K, M, P))
 
         beta = pm.Normal("beta", mu=0.0, sigma=5.0, shape=(M - 1, P))
+
+        # Last category has zero log odds
         beta_full = pm.Deterministic(
             "beta_full", pm.math.concatenate([beta, np.zeros((1, P))])
         )
@@ -54,6 +61,7 @@ def load_microcredit_model(microcredit_json_path):
 
         obs_probs = aesara.tensor.nnet.softmax(obs_logits, axis=-1)
 
+        # Likelihood for category (negative, zero, positive)
         cat_lik = pm.Categorical("cat_lik", p=obs_probs, observed=np_data["cat"] - 1)
 
         neg_mean = (
@@ -74,10 +82,12 @@ def load_microcredit_model(microcredit_json_path):
             + sigma_TE_k[np_data["site_pos"] - 1, 1] * np_data["treatment_pos"]
         )
 
-        # TODO: Make sure parameterisation is what's expected. Docs are a bit confusing.
+        # Likelihood for size of negative effect
         y_neg_lik = pm.Lognormal(
             "y_neg_lik", mu=neg_mean, sigma=neg_sd, observed=np_data["y_neg"]
         )
+
+        # Likelihood for size of positive effect
         y_pos_lik = pm.Lognormal(
             "y_pos_lik", mu=pos_mean, sigma=pos_sd, observed=np_data["y_pos"]
         )
