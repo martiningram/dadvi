@@ -4,7 +4,7 @@ Core computations for DADVI.
 
 from typing import NamedTuple, Callable, Optional, Dict
 
-from scipy.sparse import diags
+from scipy.sparse.linalg import LinearOperator
 
 import numpy as np
 from dadvi.optimization import optimize_with_hvp
@@ -345,10 +345,14 @@ def compute_preconditioner_from_var_params(var_params):
     """
 
     log_sds = np.split(var_params, 2)[1]
-    variances = np.concatenate([np.ones_like(log_sds), np.exp(2 * log_sds)])
-    M = diags(variances)
+    variances = np.concatenate([np.exp(2 * log_sds), np.ones_like(log_sds)])
 
-    return M
+    def matvec(v):
+        return variances * v
+
+    op = LinearOperator(shape=(variances.shape[0], variances.shape[0]), matvec=matvec)
+
+    return op
 
 
 def compute_hessian_inv_column(var_params, index, hvp_fun, zs, preconditioner=None):
