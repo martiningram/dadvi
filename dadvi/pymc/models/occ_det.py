@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 from functools import partial
 import pymc as pm
-import aesara
-from aesara.tensor.extra_ops import bincount
+import pytensor
+from pytensor.tensor.extra_ops import bincount
 import pickle
 import jax
-from aesara.graph import Constant
-from aesara.link.jax.dispatch import jax_funcify
-from aesara.tensor.shape import Reshape
+from pytensor.graph import Constant
+from pytensor.link.jax.dispatch import jax_funcify
+from pytensor.tensor.shape import Reshape
 
 
 @jax_funcify.register(Reshape)
@@ -66,7 +66,7 @@ def checklist_likelihood(y, env_logits, obs_logits, cell_nums, n_cells, obs_per_
     log_prob_obs_if_pres = link_fun(obs_logits)
 
     rel_log_probs = pm.math.where(
-        aesara.tensor.eq(y, 1), log_prob_obs_if_pres, log_prob_miss_if_pres
+        pytensor.tensor.eq(y, 1), log_prob_obs_if_pres, log_prob_miss_if_pres
     )
 
     summed_liks = bincount(cell_nums, weights=rel_log_probs, minlength=n_cells)
@@ -80,7 +80,7 @@ def checklist_likelihood(y, env_logits, obs_logits, cell_nums, n_cells, obs_per_
     )
 
     log_lik = pm.math.where(
-        aesara.tensor.eq(obs_per_cell, 0), lik_if_all_missing, lik_if_at_least_one_obs
+        pytensor.tensor.eq(obs_per_cell, 0), lik_if_all_missing, lik_if_at_least_one_obs
     )
 
     return log_lik.sum()
@@ -102,7 +102,7 @@ def get_occ_det_model_from_data(data, n_species, n_checklists):
 
         # Some seemingly unnecessary transposes here to make structured vb
         # easier down the road (want species as first dimension)
-        w_env = aesara.tensor.transpose(
+        w_env = pytensor.tensor.transpose(
             pm.Normal(
                 "w_env",
                 mu=0.0,
@@ -110,11 +110,11 @@ def get_occ_det_model_from_data(data, n_species, n_checklists):
                 shape=(n_species, data["X_env_mat"].shape[1]),
             )
         )
-        intercept = aesara.tensor.transpose(
+        intercept = pytensor.tensor.transpose(
             pm.Normal("intercept", mu=0.0, sigma=10.0, shape=(n_species, 1))
         )
 
-        env_logits = aesara.tensor.transpose(
+        env_logits = pytensor.tensor.transpose(
             pm.math.matrix_dot(data["X_env_mat"], w_env) + intercept
         )
 
@@ -135,15 +135,15 @@ def get_occ_det_model_from_data(data, n_species, n_checklists):
         )
         w_obs = pm.Deterministic(
             "w_obs",
-            aesara.tensor.transpose(w_obs_raw) * obs_prior_sds + obs_prior_means,
+            pytensor.tensor.transpose(w_obs_raw) * obs_prior_sds + obs_prior_means,
         )
 
-        obs_logits = aesara.tensor.transpose(
+        obs_logits = pytensor.tensor.transpose(
             pm.math.matrix_dot(data["X_obs_mat"], w_obs)
         )
 
-        env_logits_flat = aesara.tensor.reshape(env_logits, (-1,))
-        obs_logits_flat = aesara.tensor.reshape(obs_logits, (-1,))
+        env_logits_flat = pytensor.tensor.reshape(env_logits, (-1,))
+        obs_logits_flat = pytensor.tensor.reshape(obs_logits, (-1,))
 
         n_env_logits = data["X_env_mat"].shape[0] * n_species
 

@@ -167,7 +167,7 @@ def fetch_tennis_model(start_year, sackmann_dir="./examples/tennis_atp"):
             "win_lik", logit_p=logit_skills, observed=np.ones(winner_ids.shape[0])
         )
 
-    return hierarchical_model
+    return {"model": hierarchical_model, "encoder": encoder}
 
 
 def fetch_correlated_tennis_model(start_year, sackmann_dir="./examples/tennis_atp"):
