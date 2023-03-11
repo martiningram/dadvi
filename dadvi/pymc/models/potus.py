@@ -1,11 +1,11 @@
 import json
 import numpy as np
 import pymc as pm
-import aesara
+import pytensor
 import jax
-from aesara.graph import Constant
-from aesara.link.jax.dispatch import jax_funcify
-from aesara.tensor.shape import Reshape
+from pytensor.graph import Constant
+from pytensor.link.jax.dispatch import jax_funcify
+from pytensor.tensor.shape import Reshape
 
 
 @jax_funcify.register(Reshape)
@@ -112,7 +112,7 @@ def get_potus_model(stan_data_json):
 
         polling_bias = pm.Deterministic(
             "polling_bias",
-            aesara.tensor.dot(cholesky_ss_cov_poll_bias, raw_polling_bias),
+            pytensor.tensor.dot(cholesky_ss_cov_poll_bias, raw_polling_bias),
         )
         national_polling_bias_average = pm.Deterministic(
             "national_polling_bias_average",
@@ -127,25 +127,26 @@ def get_potus_model(stan_data_json):
         innovs = pm.math.matrix_dot(cholesky_ss_cov_mu_b_walk, raw_mu_b[:, :-1])
 
         # Reverse these (?)
-        innovs = aesara.tensor.transpose(aesara.tensor.transpose(innovs)[::-1])
+        innovs = pytensor.tensor.transpose(pytensor.tensor.transpose(innovs)[::-1])
 
         # Tack on the "first" one:
         together = pm.math.concatenate(
-            [aesara.tensor.reshape(mu_b_final, (-1, 1)), innovs], axis=1
+            [pytensor.tensor.reshape(mu_b_final, (-1, 1)), innovs], axis=1
         )
 
         # Compute the cumulative sums:
-        cumsums = aesara.tensor.cumsum(together, axis=1)
+        cumsums = pytensor.tensor.cumsum(together, axis=1)
 
         # To be [time, states]
-        transposed = aesara.tensor.transpose(cumsums)
+        transposed = pytensor.tensor.transpose(cumsums)
 
-        mu_b = pm.Deterministic("mu_b", aesara.tensor.transpose(transposed[::-1]))
+        mu_b = pm.Deterministic("mu_b", pytensor.tensor.transpose(transposed[::-1]))
 
         national_mu_b_average = pm.Deterministic(
             "national_mu_b_average",
             pm.math.matrix_dot(
-                aesara.tensor.transpose(mu_b), np_data["state_weights"].reshape((-1, 1))
+                pytensor.tensor.transpose(mu_b),
+                np_data["state_weights"].reshape((-1, 1)),
             ),
         )[:, 0]
 
@@ -160,13 +161,13 @@ def get_potus_model(stan_data_json):
         sigma_vec = pm.math.concatenate(
             [
                 [np_data["sigma_e_bias"]],
-                aesara.tensor.repeat(sigma_rho, np_data["T"] - 1),
+                pytensor.tensor.repeat(sigma_rho, np_data["T"] - 1),
             ]
         )
         mus = pm.math.concatenate(
             [
                 [0.0],
-                aesara.tensor.repeat(mu_e_bias * (1 - rho_e_bias), shapes["T"] - 1),
+                pytensor.tensor.repeat(mu_e_bias * (1 - rho_e_bias), shapes["T"] - 1),
             ]
         )
 
@@ -205,8 +206,8 @@ def get_potus_model(stan_data_json):
             "logit_pi_democrat_national", logit_pi_democrat_national
         )
 
-        prob_state = aesara.tensor.sigmoid(logit_pi_democrat_state)
-        prob_nat = aesara.tensor.sigmoid(logit_pi_democrat_national)
+        prob_state = pytensor.tensor.sigmoid(logit_pi_democrat_state)
+        prob_nat = pytensor.tensor.sigmoid(logit_pi_democrat_national)
 
         state_lik = pm.Binomial(
             "state_lik",

@@ -1,12 +1,12 @@
-import aesara.tensor as at
+import pytensor.tensor as pt
 import pymc as pm
-import aesara
+import pytensor
 
 
 def get_hvp(m):
     # TODO: Will have to get the input arguments right
 
-    b = at.vector(name="b")
+    b = pt.vector(name="b")
     hessian = m.d2logp()
     vars = pm.aesaraf.cont_inputs(hessian)
     hvp = hessian @ b
