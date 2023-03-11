@@ -1,11 +1,13 @@
-from typing import Callable, Dict, Tuple, Optional
+from typing import Callable, Dict
 
 import numpy as np
+import dill
 from jax import vmap
 
 from dadvi.jax import (
     build_dadvi_funs,
     compute_posterior_mean_and_sd_using_cg_delta_method,
+    get_posterior_mean_and_frequentist_sd_of_scalar_valued_function,
 )
 from dadvi.pymc.pymc_to_jax import get_jax_functions_from_pymc
 from dadvi.core import find_dadvi_optimum, get_dadvi_draws, DADVIFuns
@@ -60,9 +62,20 @@ class DADVIResult:
 
         return dadvi_dict
 
-    def get_mean_and_sd_of_scalar_valued_function(
+    def compute_function_on_mean_field_draws(
+        self,
+        function_to_run: Callable[[Dict], np.ndarray],
+        n_draws: int = 1000,
+        seed: int = 2,
+    ):
+
+        dadvi_dict = self.get_posterior_draws_mean_field(n_draws, seed)
+
+        return vmap(function_to_run)(dadvi_dict)
+
+    def get_posterior_mean_and_sd_of_scalar_valued_function(
         self, fun_to_compute
-    ) -> Tuple[float, float]:
+    ) -> Dict[str, float]:
         """
         Given a function that computes a scalar-valued output from a dictionary of parameters,
         returns the posterior mean and variance of this result using the delta method and
@@ -76,6 +89,28 @@ class DADVIResult:
             self.dadvi_funs,
             self.unflattening_fun,
         )
+
+    def get_frequentist_sd_and_lrvb_correction_of_scalar_valued_function(
+        self, fun_to_compute
+    ) -> Dict[str, float]:
+
+        return get_posterior_mean_and_frequentist_sd_of_scalar_valued_function(
+            fun_to_compute,
+            self.var_params,
+            self.fixed_draws,
+            self.dadvi_funs,
+            self.unflattening_fun,
+        )
+
+    def save_to_file(self, target_path: str):
+        with open(target_path, "wb") as f:
+            dill.dump(self, f)
+
+    @classmethod
+    def restore_from_file(cls, file_path: str):
+
+        with open(file_path, "rb") as f:
+            return dill.load(f)
 
 
 def fit_pymc_dadvi_with_jax(pymc_model, num_fixed_draws=30):
@@ -100,6 +135,6 @@ def fit_pymc_dadvi_with_jax(pymc_model, num_fixed_draws=30):
     return DADVIResult(
         fixed_draws=zs,
         var_params=opt["opt_result"].x,
-        unflattening_fun=jax_funs["unflattening_fun"],
+        unflattening_fun=jax_funs["unflatten_fun"],
         dadvi_funs=dadvi_funs,
     )
