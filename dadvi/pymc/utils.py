@@ -8,10 +8,10 @@ def get_hvp(m):
 
     b = pt.vector(name="b")
     hessian = m.d2logp()
-    vars = pm.aesaraf.cont_inputs(hessian)
+    vars = pm.pytensorf.cont_inputs(hessian)
     hvp = hessian @ b
 
-    hvp_fn = aesara.function(vars + [b], [hvp])
+    hvp_fn = pytensor.function(vars + [b], [hvp])
 
     return hvp_fn
 
