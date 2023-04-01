@@ -6,6 +6,7 @@ from functools import partial
 from dadvi.core import DADVIFuns, compute_preconditioner_from_var_params
 from dadvi.utils import cg_using_fun_scipy
 from dadvi.core import compute_score_matrix
+from dadvi.optimization import count_decorator
 
 
 @partial(jit, static_argnums=0)
@@ -69,7 +70,7 @@ def compute_posterior_mean_and_sd_using_cg_delta_method(
     fixed_draws: jnp.ndarray,
     dadvi_funs: DADVIFuns,
     unflatten_fun: Callable[[jnp.ndarray], Dict[str, jnp.ndarray]],
-) -> Tuple[float, float]:
+) -> Dict[str, float]:
     """
     Params:
         fun_to_evaluate: The function of interest. Takes a dictionary of parameter values
@@ -82,14 +83,19 @@ def compute_posterior_mean_and_sd_using_cg_delta_method(
             param_names -> values.
     """
 
-    rel_mean, rel_grad, h_inv_g = compute_h_inv_times_grad_of_fun(
+    rel_mean, rel_grad, h_inv_g, n_hvp_calls = compute_h_inv_times_grad_of_fun(
         fun_to_evaluate, unflatten_fun, final_var_params, fixed_draws, dadvi_funs
     )
 
     var_est = rel_grad @ h_inv_g
     sd_est = jnp.sqrt(var_est)
 
-    return {"mean": rel_mean, "sd": sd_est, "h_inv_g": h_inv_g}
+    return {
+        "mean": rel_mean,
+        "sd": sd_est,
+        "h_inv_g": h_inv_g,
+        "n_hvp_calls": n_hvp_calls,
+    }
 
 
 def compute_h_inv_times_grad_of_fun(
@@ -103,13 +109,17 @@ def compute_h_inv_times_grad_of_fun(
     rel_mean, rel_grad = value_and_grad(fun_to_differentiate)(final_var_params)
     preconditioner = compute_preconditioner_from_var_params(final_var_params)
 
-    rel_hvp = lambda b: dadvi_funs.kl_est_hvp_fun(final_var_params, fixed_draws, b)
+    rel_hvp = count_decorator(
+        lambda b: dadvi_funs.kl_est_hvp_fun(final_var_params, fixed_draws, b)
+    )
 
     h_inv_g, succ = cg_using_fun_scipy(rel_hvp, rel_grad, preconditioner)
 
+    n_hvp_calls = rel_hvp.calls
+
     assert succ == 0
 
-    return rel_mean, rel_grad, h_inv_g
+    return rel_mean, rel_grad, h_inv_g, n_hvp_calls
 
 
 def get_fun_to_differentiate_from_function_on_params(fun_on_params, unflatten_fun):
@@ -150,6 +160,7 @@ def get_posterior_mean_and_frequentist_sd_of_scalar_valued_function(
         "mean": cg_results["mean"],
         "lrvb_sd": cg_results["sd"],
         "freq_sd": freq_sd,
+        "n_hvp_calls": cg_results["n_hvp_calls"],
     }
 
     return results
