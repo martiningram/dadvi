@@ -6,3 +6,4 @@
 *.ipynb
 *.json
 *.netcdf
+dadvi.egg-info/**
