@@ -1,10 +1,6 @@
-from jax import config
-
-config.update("jax_enable_x64", True)
-
 import numpy as np
 import jax.numpy as jnp
-from jax import jit, grad
+from jax import jit
 from jax.scipy.stats import norm
 from dadvi.core import find_dadvi_optimum
 from dadvi.jax import build_dadvi_funs
