@@ -22,7 +22,6 @@ class DADVIResult:
         unflattening_fun: Callable[[np.ndarray], Dict[str, np.ndarray]],
         dadvi_funs: DADVIFuns,
     ):
-
         self.fixed_draws = fixed_draws
         self.var_params = var_params
         self.unflattening_fun = unflattening_fun
@@ -68,7 +67,6 @@ class DADVIResult:
         n_draws: int = 1000,
         seed: int = 2,
     ):
-
         dadvi_dict = self.get_posterior_draws_mean_field(n_draws, seed)
 
         return vmap(function_to_run)(dadvi_dict)
@@ -93,7 +91,6 @@ class DADVIResult:
     def get_frequentist_sd_and_lrvb_correction_of_scalar_valued_function(
         self, fun_to_compute
     ) -> Dict[str, float]:
-
         return get_posterior_mean_and_frequentist_sd_of_scalar_valued_function(
             fun_to_compute,
             self.var_params,
@@ -108,12 +105,12 @@ class DADVIResult:
 
     @classmethod
     def restore_from_file(cls, file_path: str):
-
         with open(file_path, "rb") as f:
             return dill.load(f)
 
 
-def fit_pymc_dadvi_with_jax(pymc_model, num_fixed_draws=30):
+def fit_pymc_dadvi_with_jax(pymc_model, num_fixed_draws=30, seed=2):
+    np.random.seed(seed)
 
     jax_funs = get_jax_functions_from_pymc(pymc_model)
     dadvi_funs = build_dadvi_funs(jax_funs["log_posterior_fun"])
