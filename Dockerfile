@@ -24,4 +24,8 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     conda create -c conda-forge -n dadvi "pymc>=5" bambi python=3.9 pystan=2.19.1.1 -y && \
     conda activate dadvi && \
     cd /src && \
-    pip install -e .[viabel]
+    pip install -e .[viabel] && \
+    git clone https://github.com/jhuggins/viabel.git && \
+    cd viabel && \
+    git checkout v0.5.1 && \
+    pip install -e .
