@@ -21,11 +21,15 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     conda init bash && \
     . /root/.bashrc && \
     conda update conda && \
-    conda create -c conda-forge -n dadvi "pymc>=5" bambi python=3.9 pystan=2.19.1.1 -y && \
+    conda create -c conda-forge -n dadvi "pymc=5.6" bambi python=3.9 pystan=2.19.1.1 -y && \
     conda activate dadvi && \
     cd /src && \
     pip install -e .[viabel] && \
     git clone https://github.com/jhuggins/viabel.git && \
     cd viabel && \
     git checkout v0.5.1 && \
-    pip install -e .
+    pip install -e . && \
+    pip install "pandas<2.0.0" && \
+    pip install "jax==0.4.14" "jaxlib==0.4.14"
+
+RUN apt-get update && apt-get install -y vim less
