@@ -52,7 +52,7 @@ def load_microcredit_model(microcredit_json_path):
             beta_k[np_data["site"] - 1] * np.expand_dims(np_data["x"], axis=1), axis=-1
         )
 
-        obs_probs = pytensor.tensor.nnet.softmax(obs_logits, axis=-1)
+        obs_probs = pytensor.tensor.special.softmax(obs_logits, axis=-1)
 
         cat_lik = pm.Categorical("cat_lik", p=obs_probs, observed=np_data["cat"] - 1)
 
