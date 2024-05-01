@@ -72,7 +72,7 @@ class DADVIResult:
         return vmap(function_to_run)(dadvi_dict)
 
     def get_posterior_mean_and_sd_of_scalar_valued_function(
-        self, fun_to_compute
+        self, fun_to_compute, cg_maxiter=None, fail_if_not_converged=True
     ) -> Dict[str, float]:
         """
         Given a function that computes a scalar-valued output from a dictionary of parameters,
@@ -86,10 +86,12 @@ class DADVIResult:
             self.fixed_draws,
             self.dadvi_funs,
             self.unflattening_fun,
+            cg_maxiter=cg_maxiter,
+            fail_if_not_converged=fail_if_not_converged,
         )
 
     def get_frequentist_sd_and_lrvb_correction_of_scalar_valued_function(
-        self, fun_to_compute
+        self, fun_to_compute, cg_maxiter=None, fail_if_not_converged=True
     ) -> Dict[str, float]:
         return get_posterior_mean_and_frequentist_sd_of_scalar_valued_function(
             fun_to_compute,
@@ -97,6 +99,8 @@ class DADVIResult:
             self.fixed_draws,
             self.dadvi_funs,
             self.unflattening_fun,
+            cg_maxiter=cg_maxiter,
+            fail_if_not_converged=fail_if_not_converged,
         )
 
     def save_to_file(self, target_path: str):

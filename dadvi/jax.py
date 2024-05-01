@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Tuple, Optional
 import numpy as np
 import jax.numpy as jnp
 from jax import jit, vmap, value_and_grad, jvp, grad
@@ -70,6 +70,8 @@ def compute_posterior_mean_and_sd_using_cg_delta_method(
     fixed_draws: jnp.ndarray,
     dadvi_funs: DADVIFuns,
     unflatten_fun: Callable[[jnp.ndarray], Dict[str, jnp.ndarray]],
+    cg_maxiter: Optional[int] = None,
+    fail_if_not_converged: bool = True,
 ) -> Dict[str, float]:
     """
     Params:
@@ -81,10 +83,17 @@ def compute_posterior_mean_and_sd_using_cg_delta_method(
         dadvi_funs: The DADVIFuns to use.
         unflatten_fun: The function mapping from the flat parameters to a dictionary of
             param_names -> values.
+        cg_maxiter: The maximum number of iterations conjugate gradients can take to converge.
     """
 
     rel_mean, rel_grad, h_inv_g, n_hvp_calls = compute_h_inv_times_grad_of_fun(
-        fun_to_evaluate, unflatten_fun, final_var_params, fixed_draws, dadvi_funs
+        fun_to_evaluate,
+        unflatten_fun,
+        final_var_params,
+        fixed_draws,
+        dadvi_funs,
+        cg_maxiter=cg_maxiter,
+        fail_if_not_converged=fail_if_not_converged,
     )
 
     var_est = rel_grad @ h_inv_g
@@ -99,7 +108,13 @@ def compute_posterior_mean_and_sd_using_cg_delta_method(
 
 
 def compute_h_inv_times_grad_of_fun(
-    fun_to_evaluate, unflatten_fun, final_var_params, fixed_draws, dadvi_funs
+    fun_to_evaluate,
+    unflatten_fun,
+    final_var_params,
+    fixed_draws,
+    dadvi_funs,
+    cg_maxiter=None,
+    fail_if_not_converged=True,
 ):
 
     fun_to_differentiate = get_fun_to_differentiate_from_function_on_params(
@@ -113,11 +128,14 @@ def compute_h_inv_times_grad_of_fun(
         lambda b: dadvi_funs.kl_est_hvp_fun(final_var_params, fixed_draws, b)
     )
 
-    h_inv_g, succ = cg_using_fun_scipy(rel_hvp, rel_grad, preconditioner)
+    h_inv_g, succ = cg_using_fun_scipy(
+        rel_hvp, rel_grad, preconditioner, maxiter=cg_maxiter
+    )
 
     n_hvp_calls = rel_hvp.calls
 
-    assert succ == 0
+    if fail_if_not_converged and succ == 0:
+        raise ValueError("Conjugate gradients failed to converge")
 
     return rel_mean, rel_grad, h_inv_g, n_hvp_calls
 
@@ -140,10 +158,18 @@ def get_posterior_mean_and_frequentist_sd_of_scalar_valued_function(
     fixed_draws: jnp.ndarray,
     dadvi_funs: DADVIFuns,
     unflatten_fun: Callable[[jnp.ndarray], Dict[str, jnp.ndarray]],
+    cg_maxiter: Optional[int] = None,
+    fail_if_not_converged: bool = True,
 ) -> Tuple[float, float]:
 
     cg_results = compute_posterior_mean_and_sd_using_cg_delta_method(
-        fun_to_evaluate, final_var_params, fixed_draws, dadvi_funs, unflatten_fun
+        fun_to_evaluate,
+        final_var_params,
+        fixed_draws,
+        dadvi_funs,
+        unflatten_fun,
+        cg_maxiter=cg_maxiter,
+        fail_if_not_converged=fail_if_not_converged,
     )
 
     score_mat = compute_score_matrix(

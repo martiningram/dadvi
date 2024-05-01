@@ -2,14 +2,14 @@ from scipy.sparse.linalg import cg, LinearOperator
 from time import time
 
 
-def cg_using_fun_scipy(A_dot_x, b, preconditioner):
+def cg_using_fun_scipy(A_dot_x, b, preconditioner, maxiter=None):
 
     n_params = b.shape[0]
 
     # Wrap with LinearOperator
     op = LinearOperator((n_params, n_params), matvec=A_dot_x)
 
-    return cg(op, b, M=preconditioner)
+    return cg(op, b, M=preconditioner, maxiter=maxiter)
 
 
 def opt_callback_fun(theta, val_and_grad_fun, hvp_fun):

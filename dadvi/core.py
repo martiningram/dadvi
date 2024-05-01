@@ -35,6 +35,8 @@ def find_dadvi_optimum(
     opt_method: str = "trust-ncg",
     callback_fun: Optional[Callable] = None,
     verbose: bool = False,
+    maxiter: Optional[int] = None,
+    compute_convergence_checks: bool = True,
 ) -> Dict:
     """
     Optimises the DADVI objective.
@@ -59,6 +61,7 @@ def find_dadvi_optimum(
         scipy.optimize.minimize. See that function's documentation for more.
     verbose: If True, prints the progress of the optimisation by showing the
         value and gradient norm at each iteration of the optimizer.
+    maxiter: If provided, runs the optimisation for `maxiter` iterations at most.
 
     Returns:
     A dictionary with entries "opt_result", containing the results of running
@@ -73,6 +76,11 @@ def find_dadvi_optimum(
         else lambda var_params, b: dadvi_funs.kl_est_hvp_fun(var_params, zs, b)
     )
 
+    if maxiter is not None:
+        additional_kwargs = {"options": {"maxiter": maxiter}}
+    else:
+        additional_kwargs = {}
+
     opt_result, eval_count = optimize_with_hvp(
         val_and_grad_fun,
         hvp_fun,
@@ -80,6 +88,7 @@ def find_dadvi_optimum(
         opt_method=opt_method,
         callback_fun=callback_fun,
         verbose=verbose,
+        minimize_kwargs=additional_kwargs,
     )
 
     to_return = {
@@ -88,7 +97,7 @@ def find_dadvi_optimum(
     }
 
     # If available, use hvp to check convergence
-    if dadvi_funs.kl_est_hvp_fun is not None:
+    if dadvi_funs.kl_est_hvp_fun is not None and compute_convergence_checks:
         problem_dimension = zs.shape[1]
         to_return["newton_step"] = compute_newton_step_vector(
             opt_result.x, zs, dadvi_funs
@@ -268,7 +277,6 @@ def compute_lrvb_covariance_cg(
     columns = list()
 
     for cur_index in relevant_indices:
-
         cur_column, _ = compute_hessian_inv_column(
             opt_params, cur_index, hvp_fun, zs, preconditioner=preconditioner
         )
