@@ -134,7 +134,7 @@ def compute_h_inv_times_grad_of_fun(
 
     n_hvp_calls = rel_hvp.calls
 
-    if fail_if_not_converged and succ == 1:
+    if fail_if_not_converged and succ != 0:
         raise ValueError("Conjugate gradients failed to converge")
 
     return rel_mean, rel_grad, h_inv_g, n_hvp_calls
