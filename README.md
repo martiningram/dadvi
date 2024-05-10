@@ -32,11 +32,13 @@ To install this repository, please first install `pymc`. The suggested way of do
 (see [here](https://www.pymc.io/projects/docs/en/latest/installation.html)) is to run:
 
 ```
-conda create -c conda-forge -n dadvi "pymc>=5" bambi
+conda create -c conda-forge -n dadvi "pymc=5.6" bambi=0.13.0 python=3.9 "scipy<1.13" "numpy==1.25.2" 
 conda activate dadvi
 ```
 
-Note that `bambi` is optional and only needed for some models.
+Note that `bambi` is optional and only needed for some models. Also, the exact version dependencies 
+given here may not have to be followed exactly, but it's safest to keep them, as these are the ones
+we tested.
 
 You can then install the package using
 
