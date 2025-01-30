@@ -21,7 +21,7 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     conda init bash && \
     . /root/.bashrc && \
     conda update conda && \
-    conda create -c conda-forge -n dadvi "pymc=5.6" bambi=0.13.0 python=3.9 pystan=2.19.1.1 -y && \
+    conda create -c conda-forge -n dadvi "pymc=5.6" bambi=0.13.0 python=3.9 pystan=2.19.1.1 "scipy<1.13" "numpy==1.25.2" -y && \
     conda activate dadvi && \
     cd /src && \
     pip install -e .[viabel] && \
