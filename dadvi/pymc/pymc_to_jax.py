@@ -1,5 +1,5 @@
 from jax.flatten_util import ravel_pytree
-from pymc.sampling_jax import get_jaxified_logp, get_jaxified_graph
+from pymc.sampling.jax import get_jaxified_logp, get_jaxified_graph
 import jax
 from pymc.util import get_default_varnames
 import numpy as np
